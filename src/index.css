@@ -4721,3 +4721,369 @@ select:focus-visible, textarea:focus-visible {
   .chat-text-entry input { font-size: 13px; }
   .chat-input .send-btn { width: 44px; height: 44px; border-radius: 13px; }
 }
+
+/* Final polish for sign-in controls and community posts. */
+.auth-heading h1 {
+  font-size: clamp(30px, 3vw, 36px);
+  letter-spacing: -0.025em;
+}
+
+.auth-heading p {
+  max-width: 440px;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.auth-form {
+  gap: 17px;
+}
+
+.form-field {
+  gap: 8px;
+  font-size: 14px;
+}
+
+.form-field > input:not([type="file"]),
+.form-field select,
+.password-input {
+  min-height: 50px;
+  height: 50px;
+  border: 1px solid #d7e2d9;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.form-field > input:not([type="file"]) {
+  padding-inline: 14px;
+}
+
+.form-field > input:focus-visible,
+.form-field select:focus-visible,
+.form-field textarea:focus-visible {
+  border-color: var(--teal);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(47, 122, 75, 0.14);
+}
+
+.password-input {
+  gap: 8px;
+  padding: 0 6px 0 14px;
+}
+
+.password-input:focus-within {
+  border-color: var(--teal);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(47, 122, 75, 0.14);
+}
+
+.password-input input,
+.password-input input:focus-visible {
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.password-input button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 8px;
+  color: #5f7065;
+}
+
+.password-input button:hover {
+  background: #f0f6f1;
+  color: var(--teal-dark);
+}
+
+.role-picker label {
+  min-height: 50px;
+  border-color: #d7e2d9;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.role-picker label:hover {
+  border-color: #9bbda3;
+}
+
+.role-picker label:has(input:checked) {
+  border-color: var(--teal);
+  background: #edf6ef;
+  color: var(--teal-dark);
+}
+
+.auth-form > .btn {
+  min-height: 50px;
+  height: 50px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.demo-credentials {
+  gap: 7px;
+  padding: 14px 16px;
+  border-color: #dfe8e1;
+  border-radius: 10px;
+  background: #f7faf7;
+}
+
+.demo-credentials strong {
+  margin-bottom: 2px;
+}
+
+.post-card {
+  overflow: visible;
+  padding: 18px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.post-head {
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+}
+
+.post-head > button.avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eaf4ec;
+  color: var(--teal-dark);
+}
+
+.post-head > .post-author-wrap {
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+  margin: 0;
+}
+
+.post-author {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 9px;
+}
+
+.post-author strong {
+  color: #293a2f;
+  font-size: 14px;
+}
+
+.post-head .role-badge {
+  padding: 3px 9px;
+  border: 1px solid #d6e8d9;
+  border-radius: 999px;
+  background: #eff7f0;
+  color: #356644 !important;
+  font-size: 11px !important;
+  font-weight: 600;
+}
+
+.post-author-wrap > span {
+  margin-top: 0;
+  color: #738077;
+  font-size: 12px;
+}
+
+.post-menu-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+}
+
+.post-menu-wrap > button {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #617067;
+}
+
+.post-menu-wrap > button:hover,
+.post-menu-wrap > button[aria-expanded="true"] {
+  background: #f0f6f1;
+  color: var(--teal-dark);
+}
+
+.post-copy,
+.post-card > p {
+  margin: 14px 0;
+  padding: 0;
+  color: #303b33;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.post-image {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  aspect-ratio: 16 / 9;
+  border-radius: 11px;
+  background: #f2f6f2;
+  object-fit: cover;
+}
+
+.reaction-count {
+  align-items: center;
+  min-height: 46px;
+  margin-top: 4px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.reaction-count span:first-child {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #f0f7f1;
+  color: var(--teal-dark);
+}
+
+.reaction-count button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.reaction-count button:hover {
+  color: var(--teal-dark);
+}
+
+.reaction-bar {
+  gap: 8px;
+  margin: 0;
+  padding: 9px 0 2px;
+  border: 0;
+}
+
+.reaction-bar button {
+  min-height: 42px;
+  height: 42px;
+  border-radius: 9px;
+  color: #536258;
+  font-size: 13px;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.reaction-bar button:hover,
+.reaction-bar button.liked {
+  background: #f0f7f1;
+  color: var(--teal-dark);
+}
+
+.post-comments {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.comment-compose input {
+  border: 1px solid #dce6de;
+  border-radius: 10px;
+  background: #f8fbf8;
+}
+
+.comment-compose input:focus-visible {
+  border-color: var(--teal);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(47, 122, 75, 0.12);
+}
+
+.feed-comment {
+  padding: 12px 0;
+  border-top-color: #e7eee8;
+}
+
+.feed-comment p {
+  margin: 4px 0;
+  color: #3e4b42;
+}
+
+@media (max-width: 767px) {
+  .auth-card {
+    width: min(calc(100% - 32px), 520px);
+    padding: 34px 0;
+  }
+
+  .auth-logo {
+    margin-bottom: 28px;
+  }
+
+  .forum-layout {
+    gap: 14px;
+  }
+
+  .post-card {
+    margin: 0 0 14px;
+    padding: 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .post-image {
+    max-height: 340px;
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    width: calc(100% - 36px);
+    padding-block: 28px;
+  }
+
+  .auth-heading h1 {
+    font-size: 30px;
+  }
+
+  .auth-form {
+    gap: 15px;
+  }
+
+  .post-head > button.avatar {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .post-card {
+    padding: 13px;
+  }
+
+  .post-copy,
+  .post-card > p {
+    font-size: 14px;
+  }
+
+  .reaction-bar {
+    gap: 3px;
+  }
+
+  .reaction-bar button {
+    gap: 5px;
+    font-size: 12px;
+  }
+}
