@@ -1,0 +1,71 @@
+import { NavLink, Outlet, useNavigate } from "react-router"
+import { Icon } from "@/components/common/legacy"
+import useAuth from "@/hooks/useAuth"
+import { usePlatform } from "@/contexts/PlatformContext"
+
+const items = [
+  ["/admin", "chart", "Tổng quan"],
+  ["/admin/nguoi-dung", "users", "Người dùng"],
+  ["/admin/tin-cho-thue", "building", "Tin cho thuê"],
+  ["/admin/dien-dan", "chat", "Diễn đàn"],
+  ["/admin/danh-muc", "filter", "Danh mục"],
+  ["/admin/bao-cao", "shield", "Báo cáo"],
+  ["/admin/thong-ke", "chart", "Thống kê & báo cáo"],
+]
+
+export default function AdminLayout() {
+  const { user, logout } = useAuth()
+  const { reports } = usePlatform()
+  const navigate = useNavigate()
+  const pendingReports = reports.filter((item) => item.status === "pending").length
+  return (
+    <main className="admin-layout admin-shell">
+      <aside className="admin-side">
+        <NavLink className="admin-logo" to="/admin">
+          T<span>Ơ</span>
+          <b>Trọ Ơi</b>
+        </NavLink>
+        <small>QUẢN TRỊ HỆ THỐNG</small>
+        {items.map(([to, icon, label]) => (
+          <NavLink
+            end={to === "/admin"}
+            key={to}
+            to={to}
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            <Icon name={icon} />
+            <span>{label}</span>
+            {label === "Báo cáo" && pendingReports > 0 && <b>{pendingReports}</b>}
+          </NavLink>
+        ))}
+      </aside>
+      <section className="admin-main">
+        <header>
+          <div>
+            <h1>Quản trị hệ thống</h1>
+            <p>Quản lý dữ liệu và hoạt động trên Trọ Ơi</p>
+          </div>
+          <button className="icon-btn" aria-label="Thông báo" onClick={() => navigate("/admin/thong-bao")}>
+            <Icon name="bell" />
+          </button>
+          <NavLink to="/admin/ho-so" className="avatar">
+            {user?.initials ?? "AD"}
+          </NavLink>
+          <button
+            className="admin-logout"
+            onClick={() => {
+              if (!window.confirm("Bạn có chắc muốn đăng xuất khỏi trang quản trị?")) return
+              logout()
+              navigate("/admin/dang-nhap")
+            }}
+          >
+            Đăng xuất
+          </button>
+        </header>
+        <div className="admin-content">
+          <Outlet />
+        </div>
+      </section>
+    </main>
+  )
+}
