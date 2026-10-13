@@ -95,6 +95,7 @@ function Home() {
                 <div>
                   <Icon name="pin" />
                   <input
+                    className="hero-search-input"
                     value={location}
                     onChange={(event) => setLocation(event.target.value)}
                     aria-label="Khu vực tìm phòng"

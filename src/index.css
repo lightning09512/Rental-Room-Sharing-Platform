@@ -116,7 +116,7 @@ h1{font-size:40px}
 h2{font-size:28px}
 h3{font-size:20px}
 button,input,select,.room-card,.post-card,.side-card,.composer{transition:none}
-button:focus-visible,input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field),select:focus-visible,.room-card:focus-visible{outline:3px solid rgba(15,157,138,.28);outline-offset:2px}
+button:focus-visible,input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field):not(.hero-search-input),select:focus-visible,.room-card:focus-visible{outline:3px solid rgba(15,157,138,.28);outline-offset:2px}
 button{min-height:44px}
 .btn:active{transform:translateY(1px)}
 .topbar{border-bottom:1px solid var(--line);box-shadow:none}
@@ -1929,7 +1929,7 @@ textarea {
 
 button:focus-visible,
 a:focus-visible,
-  input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field),
+  input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field):not(.hero-search-input),
 select:focus-visible,
 textarea:focus-visible {
   outline: 3px solid rgba(52, 115, 122, 0.32);
@@ -3767,7 +3767,7 @@ button, input, select, textarea {
   font-family: var(--font-ui);
 }
 
-button:focus-visible, a:focus-visible, input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field),
+button:focus-visible, a:focus-visible, input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field):not(.hero-search-input),
 select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--teal);
   outline-offset: 2px;
@@ -5065,6 +5065,13 @@ select:focus-visible, textarea:focus-visible {
 .forum-search-field:focus-visible,
 .message-search-field:focus,
 .message-search-field:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+.hero-search-input:focus,
+.hero-search-input:focus-visible {
   border: 0;
   outline: none;
   box-shadow: none;
