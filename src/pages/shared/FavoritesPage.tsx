@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router"
-import { RoomCard } from "@/components/common/legacy"
+import { Button, RoomCard } from "@/components/common/legacy"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { usePlatform } from "@/contexts/PlatformContext"
 
@@ -44,9 +44,9 @@ export default function FavoritesPage() {
               Chạm vào biểu tượng trái tim trên tin đăng để lưu lại những phòng
               bạn muốn xem sau.
             </p>
-            <button className="btn btn-primary" onClick={() => navigate("/tim-phong")}>
+            <Button onClick={() => navigate("/tim-phong")}>
               Khám phá phòng trọ
-            </button>
+            </Button>
           </section>
         )}
       </div>

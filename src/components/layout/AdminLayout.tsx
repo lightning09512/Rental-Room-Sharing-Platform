@@ -22,8 +22,7 @@ export default function AdminLayout() {
     <main className="admin-layout admin-shell">
       <aside className="admin-side">
         <NavLink className="admin-logo" to="/admin">
-          T<span>Ơ</span>
-          <b>Trọ Ơi</b>
+          <span className="admin-monogram">TƠ</span><b>Trọ Ơi</b>
         </NavLink>
         <small>QUẢN TRỊ HỆ THỐNG</small>
         {items.map(([to, icon, label]) => (
@@ -48,7 +47,7 @@ export default function AdminLayout() {
           <button className="icon-btn" aria-label="Thông báo" onClick={() => navigate("/admin/thong-bao")}>
             <Icon name="bell" />
           </button>
-          <NavLink to="/admin/ho-so" className="avatar">
+          <NavLink to="/admin/ho-so" className="avatar" aria-label="Hồ sơ quản trị viên">
             {user?.initials ?? "AD"}
           </NavLink>
           <button

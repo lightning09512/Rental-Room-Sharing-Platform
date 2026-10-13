@@ -182,15 +182,24 @@ export function Button({
   onClick,
   icon,
   type = "submit",
+  disabled = false,
 }: {
   children: ReactNode
   variant?: "primary" | "ghost" | "outline" | "orange"
   onClick?: () => void
   icon?: string
   type?: "button" | "submit"
+  disabled?: boolean
 }) {
+  const variantClasses = {
+    primary: "bg-[#245f3b] text-white hover:bg-[#1c4e30]",
+    ghost: "bg-transparent text-[#315b3d] hover:bg-[#f0f6f1]",
+    outline: "border border-[#cbd9cd] bg-white text-[#344b3a] hover:border-[#9fbea4] hover:bg-[#f6faf6]",
+    orange: "bg-[#245f3b] text-white hover:bg-[#1c4e30]",
+  }
+
   return (
-    <button className={`btn btn-${variant}`} onClick={onClick} type={type}>
+    <button className={`btn inline-flex min-h-11 h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34794a] disabled:cursor-not-allowed disabled:opacity-55 ${variantClasses[variant]}`} onClick={onClick} type={type} disabled={disabled}>
       {icon && <Icon name={icon} size={18} />}
       {children}
     </button>

@@ -62,10 +62,9 @@ function Home() {
         <div className="container hero-inner">
           <div className={`hero-intro-grid${featuredRoom ? " has-featured-room" : ""}`}>
             <div className="hero-copy">
-              <span className="eyebrow home-hero-kicker">Tìm theo khu vực <i>·</i> So sánh giá và diện tích</span>
+              <span className="eyebrow home-hero-kicker">Tìm phòng cùng Trọ Ơi</span>
               <h1>Tìm phòng hợp túi tiền, gần nơi bạn cần.</h1>
               <p>Lọc theo khu vực, giá và diện tích. Xem ảnh cùng thông tin phòng trước khi liên hệ chủ trọ.</p>
-              <div className="hero-proof-row"><span><Icon name="check" size={16}/>So sánh giá và diện tích</span><span><Icon name="heart" size={16}/>Lưu phòng muốn xem</span></div>
             </div>
             {featuredRoom && (
               <Link

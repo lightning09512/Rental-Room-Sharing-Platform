@@ -426,18 +426,13 @@ export default function SearchPage() {
                 </span>
                 <h2>Chưa tìm thấy phòng phù hợp</h2>
                 <p>Thử mở rộng khu vực hoặc điều chỉnh giá và tiện ích.</p>
-                <button className="btn btn-outline" onClick={resetFilters}>
+                <Button variant="outline" onClick={resetFilters}>
                   Xóa bộ lọc
-                </button>
+                </Button>
               </section>
             )}
             {loadingRooms && matchingRooms.length > 0 && <p className="result-count-note">Đang tải thêm tin phòng…</p>}
             {isApiMode && remoteRooms.length < remoteTotal && !loadingRooms && <div className="search-load-more"><Button variant="outline" onClick={() => setRemotePage((page) => page + 1)}>Xem thêm phòng</Button></div>}
-            {matchingRooms.length > 0 && !isApiMode && (
-              <p className="result-count-note">
-                Đang hiển thị {matchingRooms.length} tin trong dữ liệu demo.
-              </p>
-            )}
           </section>
         </div>
       </div>

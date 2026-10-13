@@ -20,6 +20,7 @@ import LoginPage from "@/pages/auth/LoginPage"
 import RegisterPage from "@/pages/auth/RegisterPage"
 import PasswordRecoveryPage from "@/pages/auth/PasswordRecoveryPage"
 import AccountPage from "@/pages/shared/AccountPage"
+import PublicProfilePage from "@/pages/shared/PublicProfilePage"
 import PlaceholderPage from "@/pages/shared/PlaceholderPage"
 import ErrorPage from "@/pages/errors/ErrorPage"
 
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
         path: "/bai-viet/:id",
         Component: ForumPage,
       },
+      { path: "/nguoi-dung/:id", Component: PublicProfilePage },
       { path: "/dang-nhap", Component: LoginPage },
       { path: "/dang-ky", Component: RegisterPage },
       { path: "/quen-mat-khau", element: <PasswordRecoveryPage /> },

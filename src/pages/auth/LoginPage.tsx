@@ -130,7 +130,7 @@ export default function LoginPage({ admin = false }: { admin?: boolean }) {
             {error}
           </p>
         )}
-        <Button>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</Button>
+        <Button disabled={loading}>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</Button>
         <div className="demo-credentials"><strong>Tài khoản trình diễn</strong><span>Người thuê: trang.nguyen@example.com</span><span>Chủ trọ: minhngoc@example.com</span><span>Quản trị: admin@phongtroplus.vn</span><small>Mật khẩu: {authService.demoPassword}</small></div>
         {!admin && (
           <p className="auth-switch">

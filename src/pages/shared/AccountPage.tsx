@@ -174,7 +174,7 @@ export default function AccountPage({
                 Cập nhật thông tin thành công.
               </p>
             )}
-            <Button>
+            <Button disabled={status === "loading"}>
               {status === "loading" ? "Đang lưu..." : "Lưu thay đổi"}
             </Button>
           </form>
