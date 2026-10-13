@@ -127,9 +127,21 @@ export default function ForumPage() {
       <div className="container forum-layout">
         <aside className="forum-left"><h3>Diễn đàn</h3><button className="active" onClick={() => navigate("/dien-dan")}><Icon name="home"/>Bảng tin</button><button onClick={() => user ? navigate("/tai-khoan/ho-so") : login()}><Icon name="users"/>Trang cá nhân</button><button onClick={() => user ? navigate("/tin-nhan") : login()}><Icon name="chat"/>Tin nhắn</button><div className="forum-banner"><Icon name="shield"/><strong>Giữ thông tin riêng tư</strong><p>Chia sẻ khu vực và tầm giá là đủ. Nếu gặp nội dung vi phạm, bạn có thể gửi báo cáo để quản trị viên xem xét.</p><button onClick={() => user ? navigate("/bao-cao-cua-toi") : login()}>Báo cáo của tôi</button></div></aside>
         <section className="feed">
-          <label className="forum-search"><Icon name="search"/><input aria-label="Tìm bài viết" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm bài viết trong cộng đồng"/>{query && <button onClick={() => setQuery("")}>Xóa</button>}</label>
+          <label className="forum-search"><Icon name="search"/><input className="forum-search-field" aria-label="Tìm bài viết" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm bài viết trong cộng đồng"/>{query && <button type="button" onClick={() => setQuery("")}>Xóa</button>}</label>
           <div className="composer"><div><span className="avatar">{user?.initials ?? "?"}</span><button onClick={() => user ? setComposerOpen(true) : login()}>{user ? "Bạn muốn chia sẻ điều gì?" : "Đăng nhập để chia sẻ với cộng đồng"}</button></div><div><button onClick={() => user ? setComposerOpen(true) : login()}><Icon name="image"/>Thêm ảnh</button><button onClick={() => user ? setComposerOpen(true) : login()}><Icon name="edit"/>Viết bài</button></div></div>
-          {composerOpen && <form className="composer-editor" onSubmit={publish}><div className="composer-editor-head"><div><span className="avatar">{user?.initials}</span><div><strong>{user?.name}</strong><small>Chia sẻ công khai</small></div></div><button type="button" aria-label="Đóng" onClick={() => setComposerOpen(false)}><Icon name="close"/></button></div><textarea autoFocus rows={5} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Bạn đang tìm phòng ở khu vực nào, tầm giá bao nhiêu? Hoặc chia sẻ kinh nghiệm thuê trọ của mình..."/><label className="form-field"><span>Ảnh minh họa (đường dẫn)</span><input value={image} onChange={(event) => setImage(event.target.value)} placeholder="https://..."/></label>{error && <p className="form-message error">{error}</p>}<div className="composer-editor-actions"><span>Đừng đăng số giấy tờ, số điện thoại hoặc địa chỉ riêng tư.</span><Button icon="send">Đăng bài</Button></div></form>}
+          {composerOpen && <form className="composer-editor" onSubmit={publish}>
+            <div className="composer-editor-head">
+              <div className="composer-editor-author">
+                <span className="avatar">{user?.initials}</span>
+                <div className="composer-editor-identity"><strong>{user?.name}</strong><small>Chia sẻ công khai</small></div>
+              </div>
+              <button className="composer-editor-close" type="button" aria-label="Đóng" onClick={() => setComposerOpen(false)}><Icon name="close"/></button>
+            </div>
+            <textarea autoFocus rows={5} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Bạn đang tìm phòng ở khu vực nào, tầm giá bao nhiêu? Hoặc chia sẻ kinh nghiệm thuê trọ của mình..."/>
+            <label className="form-field"><span>Ảnh minh họa (đường dẫn)</span><input value={image} onChange={(event) => setImage(event.target.value)} placeholder="https://..."/></label>
+            {error && <p className="form-message error">{error}</p>}
+            <div className="composer-editor-actions"><span>Đừng đăng số giấy tờ, số điện thoại hoặc địa chỉ riêng tư.</span><Button icon="send">Đăng bài</Button></div>
+          </form>}
           {publicPosts.map((post) => <PostCard key={post.id} post={post} onLogin={login}/>)}
           {!publicPosts.length && <section className="empty-state"><span className="placeholder-icon"><Icon name="search"/></span><h2>Chưa tìm thấy bài viết</h2><p>Thử từ khóa khác hoặc viết bài mở đầu cho cuộc trò chuyện.</p>{!id && <Button onClick={() => user ? setComposerOpen(true) : login()}>Viết bài</Button>}</section>}
         </section>

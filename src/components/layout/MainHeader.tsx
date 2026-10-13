@@ -85,7 +85,7 @@ export default function MainHeader() {
             <Icon name="search" size={18} />
           </button>
           <input
-            className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#26382e] outline-none placeholder:text-[#84908a]"
+            className="header-search-field min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#26382e] outline-none placeholder:text-[#84908a]"
             aria-label="Tìm kiếm"
             placeholder="Tìm phòng, khu vực..."
             value={searchQuery}
