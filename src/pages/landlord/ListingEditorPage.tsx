@@ -43,7 +43,7 @@ export default function ListingEditorPage() {
       return
     }
     if (file.size > (isApiMode ? 3_000_000 : 1_000_000)) {
-      setError(isApiMode ? "Ảnh tải lên cần nhỏ hơn 3 MB." : "Ảnh tải lên cần nhỏ hơn 1 MB để lưu ổn định trong bản demo.")
+      setError(isApiMode ? "Ảnh tải lên cần nhỏ hơn 3 MB." : "Ảnh tải lên cần nhỏ hơn 1 MB để lưu ổn định trong trình duyệt.")
       return
     }
     if (isApiMode) {
@@ -151,7 +151,7 @@ export default function ListingEditorPage() {
           </section>
           <section className="editor-card">
             <div className="editor-section-title"><span>03</span><div><h2>Ảnh đại diện</h2><p>Dùng ảnh thực tế, chụp đủ sáng và không dùng ảnh minh họa sai phòng.</p></div></div>
-            <label className="form-field"><span>Tải ảnh từ thiết bị</span><input type="file" accept="image/*" onChange={(event) => void uploadImage(event.target.files?.[0])}/><small>{uploading ? "Đang tải ảnh lên..." : imageFileName || (isApiMode ? "Ảnh sẽ lưu trên Cloudinary khi dịch vụ được cấu hình." : "Chọn ảnh dưới 1 MB; ảnh được lưu trong trình duyệt của bản demo.")}</small></label>
+            <label className="form-field"><span>Tải ảnh từ thiết bị</span><input type="file" accept="image/*" onChange={(event) => void uploadImage(event.target.files?.[0])}/><small>{uploading ? "Đang tải ảnh lên..." : imageFileName || (isApiMode ? "Ảnh sẽ lưu trên Cloudinary khi dịch vụ được cấu hình." : "Chọn ảnh dưới 1 MB; ảnh được lưu trong trình duyệt.")}</small></label>
             <label className="form-field"><span>Đường dẫn ảnh</span><input value={form.image} onChange={(event) => update("image", event.target.value)} placeholder="https://..."/></label>
             {form.image && <img className="listing-image-preview" src={form.image} alt="Xem trước ảnh phòng"/>}
           </section>

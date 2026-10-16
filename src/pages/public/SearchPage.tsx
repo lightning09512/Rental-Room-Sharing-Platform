@@ -409,7 +409,7 @@ export default function SearchPage() {
               map ? (
                 <Suspense fallback={<div className="map-view map-loading">Đang tải bản đồ…</div>}><RoomMap listings={locatedRooms} center={isNearSearch ? [latitude, longitude] : [10.7769, 106.7009]} zoom={isNearSearch ? 13 : 11} note="Vị trí do người đăng cung cấp; hãy xác nhận địa chỉ trước khi đi xem." /></Suspense>
               ) : (
-                <div className="result-grid">
+                <div className={matchingRooms.length === 4 ? "result-grid result-grid--balanced" : "result-grid"}>
                   {matchingRooms.map((room) => (
                     <RoomCard
                       key={room.id}

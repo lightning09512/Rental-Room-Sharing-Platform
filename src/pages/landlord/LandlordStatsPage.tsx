@@ -17,7 +17,7 @@ export default function LandlordStatsPage() {
   return (
     <main className="workspace-page">
       <div className="container workspace-container">
-        <div className="page-heading-row"><div><span className="eyebrow">Không gian chủ trọ</span><h1>Hiệu quả tin đăng</h1><p>Số liệu demo được tính từ hoạt động của các tin trong tài khoản này.</p></div><Button variant="outline" onClick={() => navigate("/chu-tro/quan-ly-tin")}>Quản lý tin</Button></div>
+        <div className="page-heading-row"><div><span className="eyebrow">Không gian chủ trọ</span><h1>Hiệu quả tin đăng</h1><p>Số liệu được tính từ hoạt động của các tin trong tài khoản này.</p></div><Button variant="outline" onClick={() => navigate("/chu-tro/quan-ly-tin")}>Quản lý tin</Button></div>
         <section className="metric-grid">
           {[["Lượt xem", totalViews, "eye"], ["Lượt liên hệ", totalContacts, "chat"], ["Tin đang hiển thị", active, "building"], ["Tổng số tin", mine.length, "chart"]].map(([label, value, icon]) => <article className="metric-card" key={label}><span><Icon name={String(icon)} /></span><div><small>{label}</small><strong>{Number(value).toLocaleString("vi-VN")}</strong></div></article>)}
         </section>
