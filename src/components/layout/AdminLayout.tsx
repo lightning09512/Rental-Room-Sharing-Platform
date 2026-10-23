@@ -7,6 +7,7 @@ const items = [
   ["/admin", "chart", "Tổng quan"],
   ["/admin/nguoi-dung", "users", "Người dùng"],
   ["/admin/tin-cho-thue", "building", "Tin cho thuê"],
+  ["/admin/tin-chuyen-nhuong", "building", "Tin chuyển nhượng"],
   ["/admin/dien-dan", "chat", "Diễn đàn"],
   ["/admin/danh-muc", "filter", "Danh mục"],
   ["/admin/bao-cao", "shield", "Báo cáo"],
@@ -15,9 +16,10 @@ const items = [
 
 export default function AdminLayout() {
   const { user, logout } = useAuth()
-  const { reports } = usePlatform()
+  const { reports, transfers } = usePlatform()
   const navigate = useNavigate()
   const pendingReports = reports.filter((item) => item.status === "pending").length
+  const pendingTransfers = transfers.filter((item) => item.status === "pending").length
   return (
     <main className="admin-layout admin-shell">
       <aside className="admin-side">
@@ -35,6 +37,7 @@ export default function AdminLayout() {
             <Icon name={icon} />
             <span>{label}</span>
             {label === "Báo cáo" && pendingReports > 0 && <b>{pendingReports}</b>}
+            {label === "Tin chuyển nhượng" && pendingTransfers > 0 && <b>{pendingTransfers}</b>}
           </NavLink>
         ))}
       </aside>

@@ -15,6 +15,7 @@ import { apiRequest, isApiMode } from "@/services/apiClient"
 
 export type ListingStatus = "pending" | "active" | "hidden" | "rented" | "rejected"
 export type ContentStatus = "pending" | "active" | "hidden" | "rejected"
+export type TransferStatus = "pending" | "active" | "rejected" | "closed" | "removed"
 
 export type RentalListing = Omit<(typeof rooms)[number], "latitude" | "longitude"> & {
   latitude?: number
@@ -31,6 +32,34 @@ export type RentalListing = Omit<(typeof rooms)[number], "latitude" | "longitude
   contacts: number
   createdAt: string
 }
+
+export interface TransferListing {
+  id: string
+  ownerId: string
+  ownerName: string
+  title: string
+  description: string
+  location: string
+  priceValue: number
+  price: string
+  transferFeeValue: number | null
+  transferFee: string
+  deposit: string
+  areaValue: number
+  area: string
+  type: string
+  contractEndDate: string
+  availableFrom: string
+  amenities: string[]
+  image: string
+  gallery: string[]
+  status: TransferStatus
+  moderationNote: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export type TransferInput = Pick<TransferListing, "title" | "description" | "location" | "priceValue" | "transferFeeValue" | "deposit" | "areaValue" | "type" | "contractEndDate" | "availableFrom" | "amenities" | "image" | "gallery">
 
 export interface PostComment {
   id: string
@@ -98,7 +127,9 @@ export interface MessageRecord {
   unread?: boolean
   muted?: boolean
   roomId: string
+  transferId?: string
   userId: string
+  relatedTransfer?: Pick<TransferListing, "id" | "title" | "location" | "price" | "transferFee" | "image"> | null
   messages: { id: string; from: "me" | "them"; text: string; time: string }[]
 }
 
@@ -119,6 +150,31 @@ export interface NotificationRecord {
 }
 
 const savedAt = new Date().toISOString()
+const initialTransfers: TransferListing[] = [
+  {
+    id: "transfer-demo-active-01", ownerId: "user-renter-02", ownerName: "Nguyễn An",
+    title: "Sang lại phòng studio gần Đại học Sư phạm Kỹ thuật",
+    description: "Phòng studio có cửa sổ lớn, máy lạnh, khu bếp riêng và chỗ để xe. Hợp đồng còn thời hạn, chủ nhà thân thiện; mình chuyển công tác nên cần sang lại sớm.",
+    location: "Linh Trung, Thủ Đức, TP. Hồ Chí Minh", priceValue: 4.2, price: "4,2 triệu",
+    transferFeeValue: 1.5, transferFee: "1,5 triệu", deposit: "Cọc 1 tháng tiền thuê", areaValue: 28, area: "28 m²",
+    type: "Căn hộ mini", contractEndDate: "2027-03-31", availableFrom: "2026-11-01",
+    amenities: ["Máy lạnh", "Bếp riêng", "Chỗ để xe"], image: photos[1], gallery: [photos[1]],
+    status: "active", moderationNote: "", createdAt: savedAt,
+  },
+  {
+    id: "transfer-demo-pending-01", ownerId: "user-renter-01", ownerName: "Hoàng Trang",
+    title: "Sang lại phòng trọ có gác, gần chợ Gò Vấp",
+    description: "Phòng có gác rộng, nhà vệ sinh riêng, giờ giấc tự do. Hợp đồng còn đến cuối năm và có thể nhận phòng trong tháng tới.",
+    location: "Phường 5, Gò Vấp, TP. Hồ Chí Minh", priceValue: 3.5, price: "3,5 triệu",
+    transferFeeValue: null, transferFee: "Thỏa thuận", deposit: "Đã cọc 3.500.000đ", areaValue: 24, area: "24 m²",
+    type: "Phòng trọ", contractEndDate: "2026-12-31", availableFrom: "2026-11-05",
+    amenities: ["Gác lửng", "Nhà vệ sinh riêng"], image: photos[2], gallery: [photos[2]],
+    status: "pending", moderationNote: "", createdAt: savedAt,
+  },
+]
+
+const loadTransfers = () => storage("transfers", initialTransfers)
+
 const initialListings: RentalListing[] = rooms.map((room, index) => ({
   ...room,
   ownerId: "user-landlord-01",
@@ -241,6 +297,7 @@ const listingPayload = (item: RentalListing) => ({
 
 interface PlatformContextValue {
   listings: RentalListing[]
+  transfers: TransferListing[]
   posts: ForumPost[]
   users: PlatformUser[]
   reports: ReportRecord[]
@@ -253,9 +310,14 @@ interface PlatformContextValue {
   refreshMessages: () => Promise<void>
   saveListing: (value: RentalListing) => Promise<void>
   deleteListing: (id: string) => Promise<void>
-  setListingStatus: (id: string, status: ListingStatus) => Promise<void>
+  setListingStatus: (id: string, status: ListingStatus, currentTenantId?: string | null) => Promise<void>
   incrementListingViews: (id: string) => Promise<void>
   incrementListingContacts: (id: string) => Promise<string | undefined>
+  saveTransfer: (value: TransferInput, id?: string) => Promise<TransferListing>
+  closeTransfer: (id: string) => Promise<void>
+  moderateTransfer: (id: string, status: "active" | "rejected", note?: string) => Promise<void>
+  removeTransfer: (id: string) => Promise<void>
+  loadTransfer: (id: string) => Promise<TransferListing | undefined>
   savePost: (value: ForumPost) => Promise<void>
   deletePost: (id: string) => Promise<void>
   setPostStatus: (id: string, status: ContentStatus) => Promise<void>
@@ -274,7 +336,7 @@ interface PlatformContextValue {
   sendMessage: (conversationId: string, accountId: string, text: string) => Promise<void>
   markConversationRead: (conversationId: string, accountId: string) => Promise<void>
   toggleConversationMute: (conversationId: string, accountId: string) => Promise<void>
-  startConversation: (person: { accountId: string; name: string; avatar: string; userId: string; roomId: string }) => Promise<string>
+  startConversation: (person: { accountId: string; name: string; avatar: string; userId: string; roomId: string; transferId?: string }) => Promise<string>
   saveReview: (review: RoomReview) => Promise<void>
   deleteReview: (id: string) => Promise<void>
 }
@@ -284,6 +346,7 @@ const PlatformContext = createContext<PlatformContextValue | null>(null)
 export function PlatformProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [listings, setListings] = useState(() => isApiMode ? [] as RentalListing[] : loadListings())
+  const [transfers, setTransfers] = useState(() => isApiMode ? [] as TransferListing[] : loadTransfers())
   const [feedPosts, setFeedPosts] = useState(() => isApiMode ? [] as ForumPost[] : loadFeedPosts())
   const [users, setUsers] = useState(() => isApiMode ? [] as PlatformUser[] : storage("users", initialUsers))
   const [reports, setReports] = useState(() => isApiMode ? [] as ReportRecord[] : storage("reports", [] as ReportRecord[]).filter((item) => ["Tin phòng", "Bài viết", "Bình luận"].includes(item.targetType)))
@@ -295,7 +358,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [connectionError, setConnectionError] = useState("")
 
   useEffect(() => { if (!isApiMode) window.localStorage.setItem("phongtroplus_listings", JSON.stringify(listings)) }, [listings])
-  useEffect(() => { window.localStorage.removeItem("phongtroplus_transfers") }, [])
+  useEffect(() => { if (!isApiMode) window.localStorage.setItem("phongtroplus_transfers", JSON.stringify(transfers)) }, [transfers])
   useEffect(() => { if (!isApiMode) window.localStorage.setItem("phongtroplus_posts", JSON.stringify(feedPosts)) }, [feedPosts])
   useEffect(() => { if (!isApiMode) window.localStorage.setItem("phongtroplus_users", JSON.stringify(users)) }, [users])
   useEffect(() => { if (!isApiMode) window.localStorage.setItem("phongtroplus_reports", JSON.stringify(reports)) }, [reports])
@@ -313,11 +376,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       try {
         const admin = user?.role === "admin"
         const landlord = user?.role === "landlord"
-        const [publicListings, privateListings, rentalListings, favoriteListings, postsResult, usersResult, categoriesResult, reportsResult, messagesResult, reviewsResult, notificationsResult] = await Promise.all([
+        const [publicListings, privateListings, rentalListings, favoriteListings, publicTransfers, privateTransfers, adminTransfers, postsResult, usersResult, categoriesResult, reportsResult, messagesResult, reviewsResult, notificationsResult] = await Promise.all([
           admin ? apiRequest<{ items: RentalListing[] }>("admin/listings") : apiRequest<{ items: RentalListing[] }>("listings"),
           landlord ? apiRequest<{ items: RentalListing[] }>("listings/mine") : Promise.resolve({ items: [] as RentalListing[] }),
           user?.role === "renter" ? apiRequest<{ items: RentalListing[] }>("listings/rentals") : Promise.resolve({ items: [] as RentalListing[] }),
           user && user.role !== "admin" ? apiRequest<{ items: RentalListing[] }>("favorites") : Promise.resolve({ items: [] as RentalListing[] }),
+          user?.role === "renter" ? apiRequest<{ items: TransferListing[] }>("transfers") : Promise.resolve({ items: [] as TransferListing[] }),
+          user?.role === "renter" ? apiRequest<{ items: TransferListing[] }>("transfers/mine") : Promise.resolve({ items: [] as TransferListing[] }),
+          admin ? apiRequest<{ items: TransferListing[] }>("admin/transfers") : Promise.resolve({ items: [] as TransferListing[] }),
           admin ? apiRequest<{ items: ForumPost[] }>("admin/forum") : apiRequest<{ items: ForumPost[] }>("forum"),
           user ? (admin ? apiRequest<{ items: PlatformUser[] }>("admin/users") : apiRequest<{ items: PlatformUser[] }>("members")) : Promise.resolve({ items: [] as PlatformUser[] }),
           admin ? apiRequest<{ items: CategoryRecord[] }>("admin/categories") : apiRequest<{ items: CategoryRecord[] }>("categories"),
@@ -330,6 +396,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         const listingSources = [publicListings.items, privateListings.items, rentalListings.items, favoriteListings.items]
         const mergedListings = listingSources.flat().filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
         setListings(mergedListings)
+        const mergedTransfers = [...publicTransfers.items, ...privateTransfers.items, ...adminTransfers.items]
+        setTransfers(mergedTransfers.filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index))
         setFeedPosts(postsResult.items)
         setUsers(usersResult.items)
         setCategories(categoriesResult.items)
@@ -363,6 +431,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PlatformContextValue>(() => ({
     listings,
+    transfers,
     posts: feedPosts,
     users,
     reports,
@@ -379,29 +448,23 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         const result = await apiRequest<{ item: RentalListing }>(existing
           ? `listings/${encodeURIComponent(item.id)}`
           : "listings", { method: existing ? "PATCH" : "POST", body: JSON.stringify(listingPayload(item)) })
-        let saved = result.item
-        const prior = listings.find((value) => value.id === item.id)
-        if (existing && prior && item.status !== prior.status && ["hidden", "rented", "active"].includes(item.status)) {
-          const statusResult = await apiRequest<{ item: RentalListing }>(`listings/${encodeURIComponent(item.id)}/status`, { method: "PATCH", body: JSON.stringify({ status: item.status, currentTenantId: item.currentTenantId }) })
-          saved = statusResult.item
-        }
+        const saved = result.item
         setListings((current) => current.some((value) => value.id === saved.id) ? current.map((value) => value.id === saved.id ? saved : value) : [saved, ...current])
         return
       }
       setListings((current) => current.some((value) => value.id === item.id) ? current.map((value) => value.id === item.id ? item : value) : [item, ...current])
     },
     deleteListing: async (id) => {
-      if (isApiMode && !await platformRequest(`listings/${encodeURIComponent(id)}`, { method: "DELETE" })) return
+      if (isApiMode) await apiRequest(`listings/${encodeURIComponent(id)}`, { method: "DELETE" })
       setListings((current) => current.filter((item) => item.id !== id))
     },
-    setListingStatus: async (id, status) => {
+    setListingStatus: async (id, status, currentTenantId) => {
       if (isApiMode) {
-        const result = await platformRequest<{ item: RentalListing }>(`listings/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) })
-        if (!result) return
+        const result = await apiRequest<{ item: RentalListing }>(`listings/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status, currentTenantId }) })
         setListings((current) => current.map((item) => item.id === id ? result.item : item))
         return
       }
-      setListings((current) => current.map((item) => item.id === id ? { ...item, status, currentTenantId: status === "rented" ? item.currentTenantId : null } : item))
+      setListings((current) => current.map((item) => item.id === id ? { ...item, status, currentTenantId: status === "rented" ? currentTenantId ?? item.currentTenantId : null } : item))
     },
     incrementListingViews: async (id) => {
       if (isApiMode) {
@@ -420,6 +483,68 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       }
       setListings((current) => current.map((item) => item.id === id ? { ...item, contacts: item.contacts + 1 } : item))
       return listings.find((item) => item.id === id)?.phone
+    },
+    saveTransfer: async (input, id) => {
+      if (isApiMode) {
+        const result = await apiRequest<{ item: TransferListing }>(id ? `transfers/${encodeURIComponent(id)}` : "transfers", {
+          method: id ? "PATCH" : "POST",
+          body: JSON.stringify({ ...input, availableFrom: input.availableFrom || null }),
+        })
+        setTransfers((current) => current.some((item) => item.id === result.item.id)
+          ? current.map((item) => item.id === result.item.id ? result.item : item)
+          : [result.item, ...current])
+        return result.item
+      }
+      const prior = id ? transfers.find((item) => item.id === id) : undefined
+      if (id && (!prior || prior.ownerId !== user?.id)) throw new Error("Bạn không có quyền sửa tin chuyển nhượng này.")
+      const price = `${input.priceValue.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} triệu`
+      const transferFee = input.transferFeeValue === null ? "Thỏa thuận" : `${input.transferFeeValue.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} triệu`
+      const now = new Date().toISOString()
+      const saved: TransferListing = {
+        ...input,
+        id: prior?.id ?? `transfer-${Date.now()}`,
+        ownerId: prior?.ownerId ?? user?.id ?? "",
+        ownerName: prior?.ownerName ?? user?.name ?? "Người thuê",
+        price,
+        transferFee,
+        area: `${input.areaValue} m²`,
+        status: "pending",
+        moderationNote: "",
+        createdAt: prior?.createdAt ?? now,
+        updatedAt: now,
+      }
+      setTransfers((current) => prior ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current])
+      return saved
+    },
+    closeTransfer: async (id) => {
+      const existing = transfers.find((item) => item.id === id)
+      if (!existing || existing.ownerId !== user?.id) throw new Error("Bạn không có quyền đóng tin chuyển nhượng này.")
+      if (isApiMode) await apiRequest(`transfers/${encodeURIComponent(id)}`, { method: "DELETE" })
+      setTransfers((current) => current.map((item) => item.id === id ? { ...item, status: "closed", updatedAt: new Date().toISOString() } : item))
+    },
+    moderateTransfer: async (id, status, note = "") => {
+      const existing = transfers.find((item) => item.id === id)
+      if (isApiMode) {
+        const result = await apiRequest<{ item: TransferListing }>(`admin/transfers/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status, note }) })
+        setTransfers((current) => current.map((item) => item.id === id ? result.item : item))
+        return
+      }
+      if (existing) {
+        const now = new Date().toISOString()
+        setTransfers((current) => current.map((item) => item.id === id ? { ...item, status, moderationNote: note, updatedAt: now } : item))
+        setNotifications((current) => [{ userId: existing.ownerId, title: status === "active" ? "Tin chuyển nhượng đã được duyệt" : "Tin chuyển nhượng cần chỉnh sửa", detail: status === "active" ? `Tin “${existing.title}” hiện đã được hiển thị.` : note || `Tin “${existing.title}” chưa được duyệt. Vui lòng rà soát lại thông tin.`, id: `notification-${Date.now()}`, read: false, createdAt: now }, ...current])
+      }
+    },
+    removeTransfer: async (id) => {
+      if (isApiMode) await apiRequest(`admin/transfers/${encodeURIComponent(id)}`, { method: "DELETE" })
+      setTransfers((current) => current.map((item) => item.id === id ? { ...item, status: "removed", updatedAt: new Date().toISOString() } : item))
+    },
+    loadTransfer: async (id) => {
+      const cached = transfers.find((item) => item.id === id)
+      if (!isApiMode) return cached
+      const result = await apiRequest<{ item: TransferListing }>(`transfers/${encodeURIComponent(id)}`)
+      setTransfers((current) => current.some((item) => item.id === id) ? current.map((item) => item.id === id ? result.item : item) : [result.item, ...current])
+      return result.item
     },
     savePost: async (item) => {
       if (isApiMode) {
@@ -488,8 +613,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     updateReport: async (id, status, note = "") => {
       if (isApiMode) {
         if (status === "pending") return
-        const result = await platformRequest<{ item: { status: ReportRecord["status"]; adminNote: string } }>(`reports/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status, note }) })
-        if (!result) return
+        const result = await apiRequest<{ item: { status: ReportRecord["status"]; adminNote: string } }>(`reports/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status, note }) })
         setReports((current) => current.map((item) => item.id === id ? { ...item, ...result.item } : item))
         return
       }
@@ -505,7 +629,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setUsers((current) => current.some((item) => item.id === managedUser.id) ? current.map((item) => item.id === managedUser.id ? managedUser : item) : [managedUser, ...current])
     },
     deleteUser: async (id) => {
-      if (isApiMode && !await platformRequest(`admin/users/${encodeURIComponent(id)}`, { method: "DELETE" })) return
+      if (isApiMode) await apiRequest(`admin/users/${encodeURIComponent(id)}`, { method: "DELETE" })
       setUsers((current) => current.filter((item) => item.id !== id))
     },
     saveCategory: async (category) => {
@@ -524,8 +648,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     },
     addNotification: async (item) => {
       if (isApiMode) {
-        const result = await platformRequest<{ item: NotificationRecord }>("notifications", { method: "POST", body: JSON.stringify(item) })
-        if (!result) return
+        const result = await apiRequest<{ item: NotificationRecord }>("notifications", { method: "POST", body: JSON.stringify(item) })
         setNotifications((current) => [result.item, ...current])
         return
       }
@@ -572,15 +695,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     },
     startConversation: async (person) => {
       if (isApiMode) {
-        const result = await platformRequest<{ item: MessageRecord }>("messages/conversations", { method: "POST", body: JSON.stringify({ otherUserId: person.userId, listingId: person.roomId }) })
-        if (!result) return ""
+        const result = await apiRequest<{ item: MessageRecord }>("messages/conversations", { method: "POST", body: JSON.stringify({ otherUserId: person.userId, listingId: person.roomId, transferId: person.transferId ?? "" }) })
         setMessages((current) => [result.item, ...current.filter((item) => item.id !== result.item.id)])
         return result.item.id
       }
-      const existing = messages.find((conversation) => conversation.accountId === person.accountId && conversation.userId === person.userId && conversation.roomId === person.roomId)
+      const existing = messages.find((conversation) => conversation.accountId === person.accountId && conversation.userId === person.userId && conversation.roomId === person.roomId && (conversation.transferId ?? "") === (person.transferId ?? ""))
       const id = existing?.id ?? `conversation-${Date.now()}`
       const self = users.find((item) => item.id === person.accountId)
-      const contact = users.find((item) => item.id === person.userId)
+      const relatedTransfer = transfers.find((item) => item.id === person.transferId)
       setMessages((current) => {
         const sender = current.find((item) => item.id === id && item.accountId === person.accountId) ?? {
           id,
@@ -588,9 +710,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           name: person.name,
           avatar: person.avatar,
           active: true,
-          text: person.roomId ? "Bắt đầu cuộc trò chuyện về phòng" : "Bắt đầu cuộc trò chuyện",
+          text: person.transferId ? "Bắt đầu cuộc trò chuyện về tin chuyển nhượng" : person.roomId ? "Bắt đầu cuộc trò chuyện về phòng" : "Bắt đầu cuộc trò chuyện",
           time: "Vừa xong",
           roomId: person.roomId,
+          transferId: person.transferId ?? "",
+          relatedTransfer: relatedTransfer ? { id: relatedTransfer.id, title: relatedTransfer.title, location: relatedTransfer.location, price: relatedTransfer.price, transferFee: relatedTransfer.transferFee, image: relatedTransfer.image } : null,
           userId: person.userId,
           messages: [],
         }
@@ -627,7 +751,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       }
       setReviews((current) => current.filter((item) => item.id !== id))
     },
-  }), [listings, feedPosts, users, reports, messages, categories, reviews, notifications, connectionState, connectionError, user, refreshMessages])
+  }), [listings, transfers, feedPosts, users, reports, messages, categories, reviews, notifications, connectionState, connectionError, user, refreshMessages])
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>
 }

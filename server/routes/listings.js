@@ -1,7 +1,8 @@
 import { Router } from "express"
 import { z } from "zod"
 import { pool } from "../config/db.js"
-import { requireAuth, requireRole } from "../middleware/auth.js"
+import { optionalAuth, requireAuth, requireRole } from "../middleware/auth.js"
+import { queueNotification, flushNotificationOutbox } from "../services/notificationService.js"
 
 const router = Router()
 const listingSelect = `SELECT l.*, u.name AS owner_name, u.phone AS owner_phone,
@@ -17,14 +18,17 @@ const asListing = (row, includePhone = false) => ({
   ownerId: row.owner_id, ownerName: row.owner_name, ...(includePhone ? { phone: row.owner_phone } : {}), deposit: row.deposit_text, description: row.description,
   status: row.status, currentTenantId: row.current_tenant_id ?? null, views: row.views, contacts: row.contacts, createdAt: row.created_at,
 })
-const listingInput = z.object({
+const listingFields = {
   title: z.string().trim().min(8).max(180), location: z.string().trim().min(2).max(300),
   priceValue: z.coerce.number().positive().max(500), areaValue: z.coerce.number().positive().max(10000),
   type: z.string().trim().min(2).max(100), description: z.string().trim().min(10).max(5000),
-  amenities: z.array(z.string().max(100)).max(40).default([]), image: z.string().min(1).max(2048), gallery: z.array(z.string().max(2048)).max(20).optional(),
+  amenities: z.array(z.string().max(100)).max(40), image: z.string().min(1).max(2048), gallery: z.array(z.string().max(2048)).max(20).optional(),
   latitude: z.coerce.number().min(-90).max(90).optional(), longitude: z.coerce.number().min(-180).max(180).optional(),
-  deposit: z.string().max(100).default("Thỏa thuận"), phone: z.string().trim().min(9).max(20).optional(), currentTenantId: z.string().nullable().optional(),
-})
+  deposit: z.string().max(100), phone: z.string().trim().min(9).max(20).optional(),
+}
+const listingInput = z.object({ ...listingFields, amenities: listingFields.amenities.default([]), deposit: listingFields.deposit.default("Thỏa thuận") })
+const listingUpdate = z.object(listingFields).partial().refine((value) => Object.keys(value).length > 0, "Cần có ít nhất một thông tin để cập nhật.")
+const hasInlineImage = (value) => [value.image, ...(value.gallery ?? [])].some((image) => image?.startsWith("data:") || image?.startsWith("blob:"))
 const lookup = async (id) => pool.query(`${listingSelect} WHERE l.id=$1 LIMIT 1`, [id])
 const canManage = (req, row) => req.user.role === "admin" || row.owner_id === req.user.id
 
@@ -77,7 +81,7 @@ router.get("/rentals", requireAuth, requireRole("renter"), async (req, res) => {
   res.json({ items: rows.map(asListing) })
 })
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", optionalAuth, async (req, res) => {
   const { rows } = await lookup(req.params.id)
   const row = rows[0]
   if (!row || !(row.status === "active" || (req.user && (req.user.id === row.owner_id || req.user.role === "admin")))) return res.status(404).json({ error: "Tin phòng không còn hiển thị." })
@@ -86,7 +90,7 @@ router.get("/:id", async (req, res) => {
 
 router.post("/", requireAuth, requireRole("landlord"), async (req, res) => {
   const input = listingInput.parse(req.body)
-  if (input.image.startsWith("data:")) return res.status(400).json({ error: "Ảnh cần được tải lên dịch vụ lưu trữ trước khi đăng tin." })
+  if (hasInlineImage(input)) return res.status(400).json({ error: "Ảnh cần được tải lên dịch vụ lưu trữ trước khi đăng tin." })
   const { rows } = await pool.query(`INSERT INTO listings(owner_id,title,description,price_vnd,deposit_text,area_m2,location,room_type,amenities,image_url,gallery,latitude,longitude,contact_phone,status)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending') RETURNING id`, [req.user.id, input.title, input.description, Math.round(input.priceValue * 1_000_000), input.deposit, input.areaValue, input.location, input.type, JSON.stringify(input.amenities), input.image, JSON.stringify(input.gallery || [input.image]), input.latitude ?? null, input.longitude ?? null, input.phone?.replace(/\s/g, "") || null])
   const created = await lookup(rows[0].id)
@@ -96,28 +100,54 @@ router.post("/", requireAuth, requireRole("landlord"), async (req, res) => {
 router.patch("/:id", requireAuth, async (req, res) => {
   const found = await pool.query("SELECT * FROM listings WHERE id=$1", [req.params.id])
   if (!found.rows[0] || !canManage(req, found.rows[0])) return res.status(found.rows[0] ? 403 : 404).json({ error: found.rows[0] ? "Bạn không sở hữu tin này." : "Không tìm thấy tin phòng." })
-  const input = listingInput.partial().parse(req.body)
-  if (input.image?.startsWith("data:")) return res.status(400).json({ error: "Ảnh cần được tải lên dịch vụ lưu trữ trước khi lưu." })
+  const input = listingUpdate.parse(req.body)
+  if (hasInlineImage(input)) return res.status(400).json({ error: "Ảnh cần được tải lên dịch vụ lưu trữ trước khi lưu." })
   const old = found.rows[0]
+  if (req.user.role !== "admin" && old.status === "rented") return res.status(409).json({ error: "Hãy kết thúc trạng thái đã thuê trước khi sửa tin." })
   const { rows } = await pool.query(`UPDATE listings SET title=$2,location=$3,price_vnd=$4,area_m2=$5,room_type=$6,description=$7,amenities=$8,image_url=$9,gallery=$10,latitude=$11,longitude=$12,deposit_text=$13,contact_phone=$14,status=$15,updated_at=now()
-    WHERE id=$1 RETURNING id`, [old.id, input.title ?? old.title, input.location ?? old.location, input.priceValue === undefined ? old.price_vnd : Math.round(input.priceValue * 1_000_000), input.areaValue ?? old.area_m2, input.type ?? old.room_type, input.description ?? old.description, JSON.stringify(input.amenities ?? old.amenities), input.image ?? old.image_url, JSON.stringify(input.gallery ?? old.gallery), input.latitude ?? old.latitude, input.longitude ?? old.longitude, input.deposit ?? old.deposit_text, input.phone === undefined ? old.contact_phone : input.phone.replace(/\s/g, "") || null, req.user.role === "admin" ? (req.body.status ?? old.status) : (old.status === "rejected" ? "pending" : old.status)])
+    WHERE id=$1 AND ($16='admin' OR (owner_id=$17 AND status<>'rented')) RETURNING id`, [old.id, input.title ?? old.title, input.location ?? old.location, input.priceValue === undefined ? old.price_vnd : Math.round(input.priceValue * 1_000_000), input.areaValue ?? old.area_m2, input.type ?? old.room_type, input.description ?? old.description, JSON.stringify(input.amenities ?? old.amenities), input.image ?? old.image_url, JSON.stringify(input.gallery ?? old.gallery), input.latitude ?? old.latitude, input.longitude ?? old.longitude, input.deposit ?? old.deposit_text, input.phone === undefined ? old.contact_phone : input.phone.replace(/\s/g, "") || null, req.user.role === "admin" ? old.status : "pending", req.user.role, req.user.id])
+  if (!rows[0]) return res.status(409).json({ error: "Tin đã thay đổi trạng thái. Vui lòng tải lại trang." })
   const updated = await lookup(rows[0].id)
   res.json({ item: asListing(updated.rows[0], true) })
 })
 
 router.patch("/:id/status", requireAuth, async (req, res) => {
   const input = z.object({ status: z.enum(["pending", "active", "hidden", "rented", "rejected"]), currentTenantId: z.string().nullable().optional(), note: z.string().max(1000).optional() }).parse(req.body)
-  const found = await pool.query("SELECT * FROM listings WHERE id=$1", [req.params.id])
-  if (!found.rows[0] || !canManage(req, found.rows[0])) return res.status(found.rows[0] ? 403 : 404).json({ error: found.rows[0] ? "Bạn không sở hữu tin này." : "Không tìm thấy tin phòng." })
-  if (req.user.role !== "admin" && ["pending", "rejected"].includes(input.status)) return res.status(403).json({ error: "Chủ trọ không thể tự duyệt hoặc từ chối tin." })
-  if (req.user.role !== "admin" && input.status === "active" && !["active", "hidden"].includes(found.rows[0].status)) return res.status(403).json({ error: "Tin cần được quản trị viên duyệt trước khi hiển thị." })
-  if (input.status === "rented" && input.currentTenantId) {
-    const tenant = await pool.query("SELECT id FROM users WHERE id=$1 AND role='renter' AND status='active'", [input.currentTenantId])
-    if (!tenant.rows[0]) return res.status(400).json({ error: "Người thuê hiện tại không hợp lệ." })
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    const found = await client.query("SELECT * FROM listings WHERE id=$1 FOR UPDATE", [req.params.id])
+    const old = found.rows[0]
+    if (!old || !canManage(req, old)) {
+      await client.query("ROLLBACK")
+      return res.status(old ? 403 : 404).json({ error: old ? "Bạn không sở hữu tin này." : "Không tìm thấy tin phòng." })
+    }
+    const landlordTransitions = { active: ["hidden", "rented"], hidden: ["active", "rented"], rented: ["active", "hidden"] }
+    if (req.user.role !== "admin" && !landlordTransitions[old.status]?.includes(input.status)) {
+      await client.query("ROLLBACK")
+      return res.status(403).json({ error: "Tin cần được quản trị viên duyệt trước khi thay đổi trạng thái này." })
+    }
+    if (input.status === "rented" && input.currentTenantId) {
+      const tenant = await client.query("SELECT id FROM users WHERE id=$1 AND role='renter' AND status='active'", [input.currentTenantId])
+      if (!tenant.rows[0]) {
+        await client.query("ROLLBACK")
+        return res.status(400).json({ error: "Người thuê hiện tại không hợp lệ." })
+      }
+    }
+    await client.query("UPDATE listings SET status=$2,current_tenant_id=$3,moderation_note=$4,updated_at=now() WHERE id=$1", [req.params.id, input.status, input.status === "rented" ? (input.currentTenantId ?? old.current_tenant_id) : null, req.user.role === "admin" ? input.note ?? "" : old.moderation_note])
+    if (req.user.role === "admin" && old.status !== input.status && ["active", "rejected"].includes(input.status)) {
+      await queueNotification(client, old.owner_id, input.status === "active" ? "Tin cho thuê đã được duyệt" : "Tin cho thuê cần chỉnh sửa", input.status === "active" ? `Tin “${old.title}” hiện đã được hiển thị.` : input.note || `Tin “${old.title}” chưa được duyệt. Vui lòng rà soát lại thông tin.`)
+    }
+    const { rows } = await client.query(`${listingSelect} WHERE l.id=$1`, [req.params.id])
+    await client.query("COMMIT")
+    await flushNotificationOutbox().catch(() => undefined)
+    res.json({ item: asListing(rows[0], true) })
+  } catch (error) {
+    await client.query("ROLLBACK")
+    throw error
+  } finally {
+    client.release()
   }
-  await pool.query("UPDATE listings SET status=$2, current_tenant_id=$3, moderation_note=$4, updated_at=now() WHERE id=$1", [req.params.id, input.status, input.status === "rented" ? (input.currentTenantId ?? found.rows[0].current_tenant_id) : null, req.user.role === "admin" ? input.note ?? "" : found.rows[0].moderation_note])
-  const { rows } = await lookup(req.params.id)
-  res.json({ item: asListing(rows[0], true) })
 })
 
 router.delete("/:id", requireAuth, async (req, res) => {
@@ -129,16 +159,34 @@ router.delete("/:id", requireAuth, async (req, res) => {
 })
 
 router.post("/:id/contact", async (req, res) => {
-  const updated = await pool.query("UPDATE listings SET contacts=contacts+1 WHERE id=$1 AND status='active' RETURNING owner_id,contact_phone", [req.params.id])
-  if (!updated.rows[0]) return res.status(404).json({ error: "Tin phòng không còn hiển thị." })
-  const owner = await pool.query("SELECT phone FROM users WHERE id=$1 AND status='active'", [updated.rows[0].owner_id])
-  res.json({ phone: updated.rows[0].contact_phone ?? owner.rows[0]?.phone ?? "" })
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    const updated = await client.query("UPDATE listings SET contacts=contacts+1 WHERE id=$1 AND status='active' RETURNING owner_id,contact_phone", [req.params.id])
+    if (!updated.rows[0]) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Tin phòng không còn hiển thị." }) }
+    await client.query("INSERT INTO property_interactions(listing_id,interaction_type) VALUES($1,'contact')", [req.params.id])
+    const owner = await client.query("SELECT phone FROM users WHERE id=$1 AND status='active'", [updated.rows[0].owner_id])
+    await client.query("COMMIT")
+    res.json({ phone: updated.rows[0].contact_phone ?? owner.rows[0]?.phone ?? "" })
+  } catch (error) {
+    await client.query("ROLLBACK")
+    throw error
+  } finally { client.release() }
 })
 
 router.post("/:id/view", async (req, res) => {
-  const { rows } = await pool.query("UPDATE listings SET views=views+1 WHERE id=$1 AND status='active' RETURNING views", [req.params.id])
-  if (!rows[0]) return res.status(404).json({ error: "Tin phòng không còn hiển thị." })
-  res.json({ views: rows[0].views })
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    const { rows } = await client.query("UPDATE listings SET views=views+1 WHERE id=$1 AND status='active' RETURNING views", [req.params.id])
+    if (!rows[0]) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Tin phòng không còn hiển thị." }) }
+    await client.query("INSERT INTO property_interactions(listing_id,interaction_type) VALUES($1,'view')", [req.params.id])
+    await client.query("COMMIT")
+    res.json({ views: rows[0].views })
+  } catch (error) {
+    await client.query("ROLLBACK")
+    throw error
+  } finally { client.release() }
 })
 
 router.get("/:id/reviews", async (req, res) => {

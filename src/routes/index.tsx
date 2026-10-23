@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router"
+import { createBrowserRouter } from "react-router"
 import MainLayout from "@/components/layout/MainLayout"
 import AdminLayout from "@/components/layout/AdminLayout"
 import RoleGuard from "@/components/common/RoleGuard"
@@ -23,6 +23,9 @@ import AccountPage from "@/pages/shared/AccountPage"
 import PublicProfilePage from "@/pages/shared/PublicProfilePage"
 import PlaceholderPage from "@/pages/shared/PlaceholderPage"
 import ErrorPage from "@/pages/errors/ErrorPage"
+import TransferListPage from "@/pages/transfers/TransferListPage"
+import TransferEditorPage from "@/pages/transfers/TransferEditorPage"
+import TransferDetailPage from "@/pages/transfers/TransferDetailPage"
 
 const renter = ["renter"] as const
 const members = ["renter", "landlord"] as const
@@ -43,7 +46,11 @@ export const router = createBrowserRouter([
       { path: "/", Component: HomePage },
       { path: "/tim-phong", Component: SearchPage },
       { path: "/phong/:id", Component: RoomDetailPage },
-      { path: "/chuyen-nhuong/*", element: <Navigate to="/tim-phong" replace /> },
+      { path: "/chuyen-nhuong", element: guard(renter, <TransferListPage />) },
+      { path: "/chuyen-nhuong/cua-toi", element: guard(renter, <TransferListPage mine />) },
+      { path: "/chuyen-nhuong/dang-tin", element: guard(renter, <TransferEditorPage />) },
+      { path: "/chuyen-nhuong/:id/chinh-sua", element: guard(renter, <TransferEditorPage />) },
+      { path: "/chuyen-nhuong/:id", element: guard(renter, <TransferDetailPage />) },
       { path: "/dien-dan", Component: ForumPage },
       {
         path: "/bai-viet/:id",
@@ -93,7 +100,6 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "/admin/dang-nhap", element: <LoginPage admin /> },
-  { path: "/admin/tin-chuyen-nhuong/*", element: <Navigate to="/tim-phong" replace /> },
   {
     path: "/admin",
     element: guard(admin, <AdminLayout />),
@@ -111,6 +117,10 @@ export const router = createBrowserRouter([
       },
       {
         path: "tin-cho-thue",
+        element: guard(admin, <AdminResourcePage />),
+      },
+      {
+        path: "tin-chuyen-nhuong",
         element: guard(admin, <AdminResourcePage />),
       },
       {

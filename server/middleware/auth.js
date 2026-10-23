@@ -32,6 +32,11 @@ export async function requireAuth(req, res, next) {
   }
 }
 
+export function optionalAuth(req, res, next) {
+  if (req.get("authorization")) return requireAuth(req, res, next)
+  next()
+}
+
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "Vui lòng đăng nhập." })

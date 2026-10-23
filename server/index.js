@@ -21,7 +21,9 @@ import categoryRoutes from "./routes/categories.js"
 import uploadRoutes from "./routes/uploads.js"
 import memberRoutes from "./routes/members.js"
 import reviewRoutes from "./routes/reviews.js"
+import transferRoutes from "./routes/transfers.js"
 import { requireAuth } from "./middleware/auth.js"
+import { flushNotificationOutbox } from "./services/notificationService.js"
 
 const app = express()
 const server = http.createServer(app)
@@ -50,12 +52,13 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/auth", authLimiter, (req, res, next) => req.path === "/password-reset/request" ? resetLimiter(req, res, next) : next(), requirePostgres, authRoutes)
 app.use("/api/listings", requirePostgres, listingRoutes)
+app.use("/api/transfers", requirePostgres, transferRoutes)
 app.use("/api/favorites", requirePostgres, favoriteRoutes)
-app.use("/api/forum", requirePostgres, requireMongo, (req, res, next) => { if (req.get("authorization")) return requireAuth(req, res, next); next() }, forumRoutes)
+app.use("/api/forum", requirePostgres, (req, res, next) => { if (req.get("authorization")) return requireAuth(req, res, next); next() }, forumRoutes)
 app.use("/api/messages", requirePostgres, requireMongo, messageRoutes)
-app.use("/api/reports", requirePostgres, requireMongo, reportRoutes)
-app.use("/api/notifications", requirePostgres, notificationRoutes)
-app.use("/api/admin", requirePostgres, requireMongo, adminRoutes)
+app.use("/api/reports", requirePostgres, reportRoutes)
+app.use("/api/notifications", requirePostgres, requireMongo, notificationRoutes)
+app.use("/api/admin", requirePostgres, adminRoutes)
 app.use("/api/categories", requirePostgres, categoryRoutes)
 app.use("/api/uploads", requirePostgres, uploadRoutes)
 app.use("/api/members", requirePostgres, memberRoutes)
@@ -90,7 +93,9 @@ io.on("connection", (socket) => {
 const port = Number(process.env.PORT || 3001)
 server.listen(port, "0.0.0.0", () => console.log(`Tro Oi API listening on ${port}`))
 if (pool) pool.query("SELECT 1").catch((error) => console.warn(`PostgreSQL unavailable: ${error.message}`))
-connectMongo().catch((error) => console.warn(`MongoDB unavailable: ${error.message}`))
+connectMongo()
+  .then(() => flushNotificationOutbox().catch((error) => console.warn(`Notification outbox unavailable: ${error.message}`)))
+  .catch((error) => console.warn(`MongoDB unavailable: ${error.message}`))
 
 async function shutdown() {
   io.close()

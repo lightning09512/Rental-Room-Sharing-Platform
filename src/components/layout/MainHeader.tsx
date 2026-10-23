@@ -35,8 +35,11 @@ export default function MainHeader() {
           ["/tin-nhan", "Tin nhắn"],
         ]
       : user?.role === "renter"
-        ? [...primaryLinks, ["/tin-nhan", "Tin nhắn"]]
+        ? [...primaryLinks, ["/chuyen-nhuong", "Chuyển nhượng"], ["/chuyen-nhuong/cua-toi", "Tin của tôi"], ["/tin-nhan", "Tin nhắn"]]
         : primaryLinks
+  const desktopLinks: NavigationLink[] = user?.role === "renter"
+    ? [...primaryLinks, ["/chuyen-nhuong", "Chuyển nhượng"]]
+    : primaryLinks
 
   const handleLogout = () => {
     if (!window.confirm("Bạn có chắc muốn đăng xuất khỏi tài khoản này?")) return
@@ -100,7 +103,7 @@ export default function MainHeader() {
             : "hidden lg:ml-auto lg:flex lg:items-center lg:gap-1"
           }
         >
-          {(menuOpen ? mobileLinks : primaryLinks).map(([to, label]) => (
+          {(menuOpen ? mobileLinks : desktopLinks).map(([to, label]) => (
             <NavLink
               key={to}
               to={to}
@@ -201,6 +204,12 @@ export default function MainHeader() {
                       <button className="flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-[#384b3e] hover:bg-[#edf5ee] hover:text-[#245f3b]" onClick={() => navigate("/chu-tro/thong-ke")}>
                         <Icon name="chart" size={18} />
                         Thống kê
+                      </button>
+                    )}
+                    {user.role === "renter" && (
+                      <button className="flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] text-[#384b3e] hover:bg-[#edf5ee] hover:text-[#245f3b]" onClick={() => navigate("/chuyen-nhuong/cua-toi")}>
+                        <Icon name="building" size={18} />
+                        Tin chuyển nhượng của tôi
                       </button>
                     )}
                     <button className="mt-1.5 flex min-h-10 w-full items-center gap-2.5 rounded-lg border-t border-[#e5ece6] px-2.5 pt-1 text-left text-[13px] font-semibold text-[#a04a45] hover:bg-[#fff5f3]" onClick={handleLogout}>

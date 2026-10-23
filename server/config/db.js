@@ -2,6 +2,8 @@ import mongoose from "mongoose"
 import pg from "pg"
 
 const { Pool } = pg
+// Keep PostgreSQL DATE values as YYYY-MM-DD so contract dates do not shift with the server timezone.
+pg.types.setTypeParser(1082, (value) => value)
 
 export const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 5_000 })

@@ -3,6 +3,7 @@ import { z } from "zod"
 import Conversation from "../models/Conversation.js"
 import { pool } from "../config/db.js"
 import { requireAuth, requireRole } from "../middleware/auth.js"
+import { findTransfer, asTransfer } from "./transfers.js"
 
 const router = Router()
 router.use(requireAuth, requireRole("renter", "landlord"))
@@ -11,9 +12,10 @@ const initials = (name = "Thành viên") => name.trim().split(/\s+/).slice(-2).m
 const messageTime = (date) => new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(date)
 async function formatConversation(conversation, selfId) {
   const otherId = conversation.participants.find((id) => id !== selfId)
-  const [otherResult, listingResult] = await Promise.all([
+  const [otherResult, listingResult, transferRow] = await Promise.all([
     pool.query("SELECT id,name,status FROM users WHERE id=$1", [otherId]),
     conversation.listingId ? pool.query("SELECT id,title,price_vnd,image_url FROM listings WHERE id=$1", [conversation.listingId]) : Promise.resolve({ rows: [] }),
+    conversation.transferId ? findTransfer(conversation.transferId) : Promise.resolve(null),
   ])
   const other = otherResult.rows[0]
   return {
@@ -21,8 +23,9 @@ async function formatConversation(conversation, selfId) {
     text: conversation.messages.at(-1)?.text ?? (conversation.listingId ? "Bắt đầu cuộc trò chuyện về phòng" : "Bắt đầu cuộc trò chuyện"),
     time: conversation.messages.at(-1) ? messageTime(conversation.messages.at(-1).createdAt) : messageTime(conversation.updatedAt),
     unread: conversation.messages.some((message) => message.senderId !== selfId && !message.readBy.includes(selfId)),
-    muted: conversation.mutedBy.includes(selfId), roomId: conversation.listingId, userId: otherId,
+    muted: conversation.mutedBy.includes(selfId), roomId: conversation.listingId || "", transferId: conversation.transferId || "", userId: otherId,
     relatedListing: listingResult.rows[0] ? { id: listingResult.rows[0].id, title: listingResult.rows[0].title, price: `${(listingResult.rows[0].price_vnd / 1_000_000).toLocaleString("vi-VN")} triệu`, image: listingResult.rows[0].image_url } : null,
+    relatedTransfer: transferRow ? (({ id, title, location, price, transferFee, image }) => ({ id, title, location, price, transferFee, image }))(asTransfer(transferRow)) : null,
     messages: conversation.messages.map((message) => ({ id: String(message._id), from: message.senderId === selfId ? "me" : "them", text: message.text, time: messageTime(message.createdAt) })),
   }
 }
@@ -33,17 +36,26 @@ router.get("/conversations", async (req, res) => {
 })
 
 router.post("/conversations", async (req, res) => {
-  const input = z.object({ otherUserId: z.string().min(1), listingId: z.string().optional().default("") }).parse(req.body)
+  const input = z.object({ otherUserId: z.string().min(1), listingId: z.string().optional().default(""), transferId: z.string().optional().default("") }).refine((value) => !(value.listingId && value.transferId), "Chọn một tin liên quan cho cuộc trò chuyện.").parse(req.body)
   if (input.otherUserId === req.user.id) return res.status(400).json({ error: "Không thể bắt đầu cuộc trò chuyện với chính mình." })
-  const other = await pool.query("SELECT id FROM users WHERE id=$1 AND status='active' AND role IN ('renter','landlord')", [input.otherUserId])
+  const other = await pool.query("SELECT id,role FROM users WHERE id=$1 AND status='active' AND role IN ('renter','landlord')", [input.otherUserId])
   if (!other.rows[0]) return res.status(404).json({ error: "Không tìm thấy thành viên này." })
   if (input.listingId) {
     const listing = await pool.query("SELECT id,owner_id,status FROM listings WHERE id=$1", [input.listingId])
     if (!listing.rows[0] || listing.rows[0].status !== "active" || ![req.user.id, input.otherUserId].includes(listing.rows[0].owner_id)) return res.status(400).json({ error: "Phòng không phù hợp với cuộc trò chuyện." })
   }
+  if (input.transferId) {
+    const transfer = await findTransfer(input.transferId)
+    if (req.user.role !== "renter" || other.rows[0].role !== "renter" || !transfer || transfer.status !== "active" || transfer.owner_id !== input.otherUserId || transfer.owner_id === req.user.id) {
+      return res.status(400).json({ error: "Tin chuyển nhượng không còn phù hợp để liên hệ." })
+    }
+  }
   const participants = [req.user.id, input.otherUserId].sort()
-  let conversation = await Conversation.findOne({ participants: { $all: participants, $size: 2 }, listingId: input.listingId })
-  if (!conversation) conversation = await Conversation.create({ participants, listingId: input.listingId, messages: [] })
+  const contextQuery = input.transferId
+    ? { transferId: input.transferId }
+    : { listingId: input.listingId, transferId: { $in: ["", null] } }
+  let conversation = await Conversation.findOne({ participants: { $all: participants, $size: 2 }, ...contextQuery })
+  if (!conversation) conversation = await Conversation.create({ participants, listingId: input.listingId, transferId: input.transferId, messages: [] })
   res.status(201).json({ item: await formatConversation(conversation, req.user.id) })
 })
 

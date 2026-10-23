@@ -680,7 +680,9 @@ textarea,
 }
 
 .status-draft,
-.status-paused {
+.status-paused,
+.status-closed,
+.status-removed {
   color: #526372;
   background: #edf1f4;
   border-color: #d5dfe5;
@@ -4794,6 +4796,12 @@ select:focus-visible, textarea:focus-visible {
   border: 0;
   border-radius: 0;
   outline: 0;
+  box-shadow: none;
+}
+
+.auth-form .password-input input:focus-visible:not(.header-search-field):not(.forum-search-field):not(.message-search-field):not(.hero-search-input) {
+  outline: 0;
+  outline-offset: 0;
   box-shadow: none;
 }
 

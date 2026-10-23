@@ -20,6 +20,7 @@ const session = (row) => ({ user: publicUser(row), token: createToken(row) })
 
 router.post("/register", async (req, res) => {
   const input = registerSchema.parse(req.body)
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) return res.status(503).json({ error: "JWT_SECRET chưa được cấu hình an toàn.", code: "AUTH_NOT_CONFIGURED" })
   const passwordHash = await bcrypt.hash(input.password, 12)
   const { rows } = await pool.query(
     "INSERT INTO users(name,email,phone,password_hash,role) VALUES($1,$2,$3,$4,$5) RETURNING *",
@@ -67,8 +68,18 @@ router.post("/password-reset/request", async (req, res) => {
   if (!rows[0]) return res.json({ message: "Nếu thông tin khớp tài khoản, mã xác nhận sẽ được gửi qua email đã đăng ký." })
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0")
   const tokenHash = crypto.createHash("sha256").update(`${rows[0].id}:${code}`).digest("hex")
-  await pool.query("UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL", [rows[0].id])
-  await pool.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '15 minutes')", [rows[0].id, tokenHash])
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    await client.query("UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND used_at IS NULL", [rows[0].id])
+    await client.query("INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,now()+interval '15 minutes')", [rows[0].id, tokenHash])
+    await client.query("COMMIT")
+  } catch (error) {
+    await client.query("ROLLBACK")
+    throw error
+  } finally {
+    client.release()
+  }
   const transporter = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: process.env.SMTP_SECURE === "true", auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined })
   try {
     await transporter.sendMail({ from: process.env.SMTP_FROM, to: rows[0].email, subject: "Mã đặt lại mật khẩu Trọ Ơi", text: `Mã xác nhận của bạn là ${code}. Mã có hiệu lực trong 15 phút.` })
@@ -85,10 +96,23 @@ router.post("/password-reset/confirm", async (req, res) => {
   const user = rows[0]
   if (!user) return res.status(400).json({ error: "Mã xác nhận không hợp lệ hoặc đã hết hạn." })
   const tokenHash = crypto.createHash("sha256").update(`${user.id}:${input.code}`).digest("hex")
-  const tokenResult = await pool.query("UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND token_hash=$2 AND used_at IS NULL AND expires_at>now() RETURNING id", [user.id, tokenHash])
-  if (!tokenResult.rowCount) return res.status(400).json({ error: "Mã xác nhận không hợp lệ hoặc đã hết hạn." })
   const passwordHash = await bcrypt.hash(input.password, 12)
-  await pool.query("UPDATE users SET password_hash=$2,updated_at=now() WHERE id=$1", [user.id, passwordHash])
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    const tokenResult = await client.query("UPDATE password_reset_tokens SET used_at=now() WHERE user_id=$1 AND token_hash=$2 AND used_at IS NULL AND expires_at>now() RETURNING id", [user.id, tokenHash])
+    if (!tokenResult.rowCount) {
+      await client.query("ROLLBACK")
+      return res.status(400).json({ error: "Mã xác nhận không hợp lệ hoặc đã hết hạn." })
+    }
+    await client.query("UPDATE users SET password_hash=$2,updated_at=now() WHERE id=$1", [user.id, passwordHash])
+    await client.query("COMMIT")
+  } catch (error) {
+    await client.query("ROLLBACK")
+    throw error
+  } finally {
+    client.release()
+  }
   res.json({ message: "Đặt lại mật khẩu thành công." })
 })
 

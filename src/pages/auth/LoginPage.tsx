@@ -39,8 +39,8 @@ export default function LoginPage({ admin = false }: { admin?: boolean }) {
               : "/"),
         { replace: true },
       )
-    } catch {
-      setError("Không thể đăng nhập. Vui lòng thử lại.")
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Không thể đăng nhập. Vui lòng thử lại.")
     } finally {
       setLoading(false)
     }
@@ -131,7 +131,7 @@ export default function LoginPage({ admin = false }: { admin?: boolean }) {
           </p>
         )}
         <Button disabled={loading}>{loading ? "Đang đăng nhập..." : "Đăng nhập"}</Button>
-        <div className="demo-credentials"><strong>Tài khoản trình diễn</strong><span>Người thuê: trang.nguyen@example.com</span><span>Chủ trọ: minhngoc@example.com</span><span>Quản trị: admin@phongtroplus.vn</span><small>Mật khẩu: {authService.demoPassword}</small></div>
+        <div className="demo-credentials"><strong>Tài khoản trình diễn</strong><span>Người thuê: trang.nguyen@example.com</span><span>Chủ trọ: minhngoc@example.com</span><span>Quản trị: admin@phongtroplus.vn</span><small>Mật khẩu: {authService.demoPassword}</small>{!admin && <NavLink to="/admin/dang-nhap">Đăng nhập quản trị</NavLink>}</div>
         {!admin && (
           <p className="auth-switch">
             Chưa có tài khoản? <NavLink to="/dang-ky">Đăng ký ngay</NavLink>

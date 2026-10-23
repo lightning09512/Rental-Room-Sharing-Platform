@@ -15,32 +15,44 @@ const statusLabels: Record<ListingStatus, string> = {
 export default function MyListingsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { listings, users, saveListing, deleteListing } = usePlatform()
+  const { listings, users, saveListing, deleteListing, setListingStatus } = usePlatform()
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState("all")
   const [rentedListing, setRentedListing] = useState<RentalListing | null>(null)
   const [currentTenantId, setCurrentTenantId] = useState("")
+  const [actionError, setActionError] = useState("")
   const mine = useMemo(() => listings.filter((item) => item.ownerId === user?.id), [listings, user?.id])
   const filtered = mine.filter((item) =>
     (!status || status === "all" || item.status === status) &&
     `${item.title} ${item.location}`.toLocaleLowerCase("vi").includes(query.toLocaleLowerCase("vi")),
   )
   const tenants = users.filter((item) => item.role === "renter" && item.status === "active")
-  const updateStatus = (item: RentalListing, nextStatus: ListingStatus) => {
+  const updateStatus = async (item: RentalListing, nextStatus: ListingStatus) => {
     if (nextStatus === "rented") {
       setCurrentTenantId(item.currentTenantId ?? "")
       setRentedListing(item)
       return
     }
     if (!window.confirm(`Cập nhật “${item.title}” sang trạng thái “${statusLabels[nextStatus]}”?`)) return
-    saveListing({ ...item, status: nextStatus, currentTenantId: null })
+    setActionError("")
+    try {
+      if (item.status === "rejected" && nextStatus === "pending") await saveListing(item)
+      else await setListingStatus(item.id, nextStatus)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Không thể cập nhật trạng thái tin.")
+    }
   }
-  const markAsRented = (event: FormEvent<HTMLFormElement>) => {
+  const markAsRented = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!rentedListing || !currentTenantId) return
-    saveListing({ ...rentedListing, status: "rented", currentTenantId })
-    setRentedListing(null)
-    setCurrentTenantId("")
+    setActionError("")
+    try {
+      await setListingStatus(rentedListing.id, "rented", currentTenantId)
+      setRentedListing(null)
+      setCurrentTenantId("")
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Không thể ghi nhận người thuê.")
+    }
   }
 
   return (
@@ -66,6 +78,8 @@ export default function MyListingsPage() {
           </select>
           <span>{filtered.length} tin</span>
         </div>
+
+        {actionError && <p className="form-message error" role="alert">{actionError}</p>}
 
         {filtered.length ? (
           <div className="owned-listings">
@@ -93,7 +107,7 @@ export default function MyListingsPage() {
                     aria-label={`Cập nhật trạng thái: ${item.title}`}
                     value={item.status}
                     disabled={item.status === "pending"}
-                    onChange={(event) => updateStatus(item, event.target.value as ListingStatus)}
+                    onChange={(event) => void updateStatus(item, event.target.value as ListingStatus)}
                   >
                     {(item.status === "pending"
                       ? ["pending"]
@@ -103,7 +117,7 @@ export default function MyListingsPage() {
                     ).map((value) => <option value={value} key={value}>{item.status === "rejected" && value === "pending" ? "Gửi lại duyệt" : statusLabels[value as ListingStatus]}</option>)}
                   </select>
                   <button className="danger-action" onClick={() => {
-                    if (window.confirm(`Xóa tin “${item.title}”?`)) deleteListing(item.id)
+                    if (window.confirm(`Xóa tin “${item.title}”?`)) void deleteListing(item.id).catch((error: unknown) => setActionError(error instanceof Error ? error.message : "Không thể xóa tin."))
                   }}><Icon name="trash" size={16} /> Xóa</button>
                 </div>
               </article>
@@ -118,7 +132,7 @@ export default function MyListingsPage() {
           </section>
         )}
       </div>
-      {rentedListing && <div className="dialog-backdrop"><section className="action-dialog" role="dialog" aria-modal="true" aria-labelledby="rented-title"><button className="dialog-close" onClick={() => setRentedListing(null)} aria-label="Đóng"><Icon name="close"/></button><span className="eyebrow">Cập nhật tình trạng phòng</span><h2 id="rented-title">Đánh dấu đã cho thuê</h2><p className="dialog-target">{rentedListing.title}<br/>Chọn tài khoản người thuê hiện tại để họ có thể gửi đánh giá cho phòng.</p><form className="dialog-form" onSubmit={markAsRented}><label className="form-field"><span>Người thuê hiện tại <b>*</b></span><select required value={currentTenantId} onChange={(event) => setCurrentTenantId(event.target.value)}><option value="">Chọn người thuê</option>{tenants.map((tenant) => <option value={tenant.id} key={tenant.id}>{tenant.name} · {tenant.email}</option>)}</select>{!tenants.length && <small>Chưa có tài khoản người thuê đang hoạt động để ghi nhận.</small>}</label><div className="dialog-actions"><Button type="button" variant="outline" onClick={() => setRentedListing(null)}>Hủy</Button><Button icon="check">Lưu trạng thái</Button></div></form></section></div>}
+      {rentedListing && <div className="dialog-backdrop"><section className="action-dialog" role="dialog" aria-modal="true" aria-labelledby="rented-title"><button className="dialog-close" onClick={() => setRentedListing(null)} aria-label="Đóng"><Icon name="close"/></button><span className="eyebrow">Cập nhật tình trạng phòng</span><h2 id="rented-title">Đánh dấu đã cho thuê</h2><p className="dialog-target">{rentedListing.title}<br/>Chọn tài khoản người thuê hiện tại để họ có thể gửi đánh giá cho phòng.</p><form className="dialog-form" onSubmit={markAsRented}><label className="form-field"><span>Người thuê hiện tại <b>*</b></span><select required value={currentTenantId} onChange={(event) => setCurrentTenantId(event.target.value)}><option value="">Chọn người thuê</option>{tenants.map((tenant) => <option value={tenant.id} key={tenant.id}>{tenant.name} · {tenant.email}</option>)}</select>{!tenants.length && <small>Chưa có tài khoản người thuê đang hoạt động để ghi nhận.</small>}</label>{actionError && <p className="form-message error" role="alert">{actionError}</p>}<div className="dialog-actions"><Button type="button" variant="outline" onClick={() => setRentedListing(null)}>Hủy</Button><Button icon="check">Lưu trạng thái</Button></div></form></section></div>}
     </main>
   )
 }
